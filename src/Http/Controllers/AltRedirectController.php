@@ -3,10 +3,10 @@
 namespace AltDesign\AltRedirect\Http\Controllers;
 
 use AltDesign\AltRedirect\Helpers\Data;
+use AltDesign\AltRedirect\Models\Redirect;
 use Illuminate\Http\Request;
-use Statamic\Fields\Blueprint;
 use Statamic\Fields\BlueprintRepository;
-use Statamic\Filesystem\Manager;
+use Throwable;
 
 class AltRedirectController
 {
@@ -36,33 +36,22 @@ class AltRedirectController
 
     public function index()
     {
-        // Grab the old directory just in case
-        $oldDirectory = Blueprint::directory();
-
-        //Publish form
-        // Get an array of values
-        $data = new Data($this->type);
-        $values = $data->all();
+        $redirects =  Redirect::all()->toArray();
 
         // Get a blueprint.So
         $blueprint = with(new BlueprintRepository)->setDirectory(__DIR__.'/../../../resources/blueprints')->find($this->type);
         // Get a Fields object
         $fields = $blueprint->fields();
         // Add the values to the object
-        $fields = $fields->addValues($values);
+        $fields = $fields->addValues($redirects);
         // Pre-process the values.
         $fields = $fields->preProcess();
-
-        // Reset the directory to the old one
-        if ($oldDirectory) {
-            Blueprint::setDirectory($oldDirectory);
-        }
 
         return view('alt-redirect::index', [
             'blueprint' => $blueprint->toPublishArray(),
             'values' => $fields->values(),
             'meta' => $fields->meta(),
-            'data' => $values,
+            'data' => $redirects,
             'type' => $this->type,
             'action' => $this->actions[$this->type],
             'title' => $this->titles[$this->type],
@@ -72,20 +61,16 @@ class AltRedirectController
 
     public function create(Request $request)
     {
-        $data = new Data($this->type);
-
         // Get a blueprint.
         $blueprint = with(new BlueprintRepository)->setDirectory(__DIR__.'/../../../resources/blueprints')->find($this->type);
 
         // Get a Fields object
+		/** @var \Statamic\Fields\Fields $fields */
         $fields = $blueprint->fields();
-
-        // Add the values to the array
-        $arr = $request->all();
-        $arr['id'] = uniqid();
+		$values = $request->all();
 
         // Avoid looping redirects (caught by validation, but give a more helpful error)
-        if (($this->type == 'redirects') && ($arr['to'] === $arr['from'])) {
+        if (($this->type == 'redirects') && ($values['to'] === $values['from'])) {
             $response = [
                 'message' => "'To' and 'From' addresses cannot be identical",
                 'errors' => [
@@ -97,58 +82,49 @@ class AltRedirectController
             return response()->json($response, 422);
         }
 
-        $fields = $fields->addValues($arr);
+        $fields = $fields->addValues($values);
         $fields->validate();
 
-        $data->setAll($fields->process()->values()->toArray());
-
-        $data = new Data($this->type);
-        $values = $data->all();
+        Redirect::make(
+			$fields->get('from'),
+			$fields->get('to'),
+			$fields->get('redirect_type'),
+			$fields->get('sites')
+		)->save();
 
         return [
-            'data' => $values,
+            'data' => Redirect::all()->toArray(),
         ];
     }
 
-    public function delete(Request $request)
+	/**
+	 * @throws Throwable
+	 */
+	public function delete(Request $request)
     {
-        $disk = (new Manager())->disk();
-        switch($this->type) {
-            case "redirects" :
-                $disk->delete('content/alt-redirect/' . hash('sha512', base64_encode($request->from)) . '.yaml');
-                $disk->delete('content/alt-redirect/' . base64_encode($request->from) . '.yaml');
-                $disk->delete('content/alt-redirect/alt-regex/' . hash('sha512', base64_encode($request->id)) . '.yaml');
-                $disk->delete('content/alt-redirect/alt-regex/'. base64_encode($request->id) . '.yaml');
-                break;
-            case 'query-strings':
-                $disk->delete('content/alt-redirect/query-strings/' . hash('sha512', base64_encode($request->query_string)) . '.yaml');
-                break;
-        }
-
-        $data = new Data($this->type);
-        $values = $data->all();
+        $id = $request->get('id');
+        Redirect::query()->find($id)->deleteOrFail();
 
         return [
-            'data' => $values,
+            'data' => Redirect::all()->toArray(),
         ];
     }
 
     // Import and Export can stay hardcoded to redirects since I/O for Query Strings aren't supported atm
     public function export(Request $request)
     {
-        $data = new Data('redirects');
+        $redirects = Redirect::all();
 
-        $callback = function () use ($data) {
-            $df = fopen('php://output', 'w');
+        $callback = function () use ($redirects) {
+            $stream = fopen('php://output', 'w');
 
-            fputcsv($df, ['from', 'to', 'redirect_type', 'sites', 'id']);
+            fputcsv($stream, ['from_md5', 'from', 'to', 'redirect_type', 'sites', 'id']);
 
-            // Use the data from the request instead of fetching from the database
-            foreach ($data->data as $row) {
-                fputcsv($df, [$row['from'], $row['to'], $row['redirect_type'], is_array($row['sites']) ? implode(',', $row['sites']) : $row['sites'], $row['id']]); // Adjust as per your data structure
-            }
+            $redirects->each(function ($redirect) use ($stream) {
+				fputcsv($stream, $redirect->toArray());
+			});
 
-            fclose($df);
+            fclose($stream);
         };
 
         return response()->stream($callback, 200, [
@@ -159,6 +135,7 @@ class AltRedirectController
 
     public function import(Request $request)
     {
+		ray($request->get('data'));
         $currentData = json_decode($request->get('data'), true);
         $file = $request->file('file');
         $handle = fopen($file->path(), 'r');
