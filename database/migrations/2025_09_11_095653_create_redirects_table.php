@@ -13,11 +13,12 @@ return new class extends Migration
     {
         Schema::create('redirects', function (Blueprint $table) {
             $table->id();
-            $table->string('from_mb5');
+            $table->string('from_md5')->unique();
             $table->string('from');
             $table->string('to');
             $table->string('redirect_type');
             $table->jsonb('sites')->default(json_encode([]));
+			$table->boolean('is_regex')->default(false);
             $table->timestamps();
         });
     }

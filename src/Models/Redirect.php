@@ -6,29 +6,27 @@ use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 
-class Redirect extends Model implements Arrayable
+class Redirect extends Model
 {
-	use HasUuids;
-
-	protected $primaryKey = 'id';
-
 	protected $fillable = [
-		'from_mb5',
+		'from_md5',
 		'from',
 		'to',
 		'redirect_type',
 		'sites',
+		'is_regex',
 	];
 
 	protected $casts = [
 		'sites' => 'array',
 	];
 
-	public static function make(string $from, string $to, string $redirectType, array $sites): Redirect
+	public static function make(string $from, string $to, string $redirectType, array $sites, $isRegex = false): Redirect
 	{
 		$redirect = new Redirect();
 		$redirect->fill([
-			'from_mb5' => md5($from),
+			'from_md5' => md5($from),
+			'is_regex' => $isRegex,
 			'from' => $from,
 			'to' => $to,
 			'redirect_type' => $redirectType,
@@ -38,19 +36,56 @@ class Redirect extends Model implements Arrayable
 		return $redirect;
 	}
 
-	public static function getByFrom(string $from): Redirect
+	public static function getByFromMd5(string $from): ?Redirect
 	{
-		return Redirect::query()->where('from', $from)->first();
+		return Redirect::query()->where('from_md5', $from)->first();
 	}
 
-	public function toArray(): array
+	public static function getRegexRedirect(string $from): ?Redirect
 	{
-		return [
-			'from_mb5' => $this->from_mb5,
-			'from' => $this->from,
-			'to' => $this->to,
-			'redirect_type' => $this->redirect_type,
-			'sites' => $this->sites,
-		];
+		return Redirect::query()->whereRaw('? ~ "from"', [$from])->first();
+	}
+
+	public static function getOverlapRegexRedirects(string $from): ?Redirect
+	{
+		if ($overlap = self::getRegexRedirect($from)) {
+			return $overlap;
+		}
+
+		return Redirect::query()->whereRaw('"from" ~ ?', [$from])->first();
+	}
+
+	public function validateRedirect(): ?array
+	{
+		if ($this->to === $this->from) {
+			return [
+				'message' => "'To' and 'From' addresses cannot be identical",
+				'errors' => [
+					'from' => ['This field must be unique.'],
+					'to' => ['This field must be unique.'],
+				],
+			];
+		}
+
+		if ($this->is_regex && $redirect = Redirect::getOverlapRegexRedirects($this->from)) {
+			return [
+				'message' => "Regex overlap with existing redirect: $redirect->from",
+				'errors' => [
+					'is_regex' => ["Regex overlap with existing redirect: $redirect->from"],
+				],
+			];
+		}
+
+		if (Redirect::query()->where('from', $this->to)->where('to', $this->from)->exists()) {
+			return [
+				'message' => "Existing redirect with opposite from and to exist creating a loop",
+				'errors' => [
+					'from' => ["Existing redirect with opposite from and to exist creating a loop"],
+					'to' => ["Existing redirect with opposite from and to exist creating a loop"],
+				],
+			];
+		}
+
+		return null;
 	}
 }

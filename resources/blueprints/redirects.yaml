@@ -37,6 +37,14 @@ tabs:
               hide_display: false
               width: 50
           -
+            handle: is_regex
+            field:
+              type: toggle
+              display: "Is Regex?"
+              instructions: "Enable this if the value should be treated as a regular expression."
+              default: false
+              width: 50
+          -
             handle: redirect_type
             field:
               options:

@@ -71,10 +71,9 @@ export default ({
             this.totalItems = temp.length;
             this.itemsSliced = temp.slice(start, end);
         },
-        deleteRedirect(from, id) {
+        deleteRedirect(id) {
             if (confirm('Are you sure you want to delete this redirect?')) {
                 Statamic.$axios.post(cp_url('alt-design/alt-redirect/delete'), {
-                    from: from,
                     id: id
                 }).then(res => {
                     this.updateItems(res)
@@ -112,6 +111,7 @@ export default ({
                 return;
             }).catch(err => {
                 console.log(err)
+                this.$toast.error('Invalid CSV file format. Check console for details.');
             })
         },
         handleFileUpload(event) {
@@ -157,6 +157,9 @@ export default ({
                             <th class="group from-column sortable-column pr-8 w-24" style="width:33%">
                                 <span>To</span>
                             </th>
+                            <th class="group to-column pr-8 w-8" style="width:8%">
+                                <span>Match Type</span>
+                            </th>
                             <th class="group to-column pr-8" style="width:8%">
                                 <span>Type</span>
                             </th>
@@ -175,13 +178,16 @@ export default ({
                                 {{ item.to }}
                             </td>
                             <td>
+                                {{ item.is_regex ? 'Regex' : 'Exact' }}
+                            </td>
+                            <td>
                                 {{ item.redirect_type }}
                             </td>
                             <td>
                                 {{ (item.sites && item.sites.length ) ? item.sites.join(', ') : "Unknown" }}
                             </td>
                             <td>
-                                <button @click="deleteRedirect(item.from, item.id)" class="btn"
+                                <button @click="deleteRedirect(item.id)" class="btn"
                                         style="color: #bc2626;">Remove
                                 </button>
                             </td>
