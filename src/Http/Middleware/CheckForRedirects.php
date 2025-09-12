@@ -38,8 +38,6 @@ class CheckForRedirects
 			}
 		}
 
-
-
 		//No redirect
 		return $next($request);
 	}

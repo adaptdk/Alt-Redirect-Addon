@@ -15,38 +15,14 @@ use Throwable;
 
 class AltRedirectController
 {
-	private string $type = 'redirects';
-
-	private array $actions = [
-		'redirects' => 'alt-redirect.create',
-		'query-strings' => 'alt-redirect.query-strings.create',
-	];
-
-	private array $titles = [
-		'redirects' => 'Alt Redirect',
-		'query-strings' => 'Alt Redirect - Query Strings',
-	];
-
-	private array $instructions = [
-		'redirects' => 'Manage your redirects here. For detailed instructions, please consult the Alt Redirect Readme',
-		'query-strings' => 'Alt Redirect can strip query strings from your URIs before they are processed. These are listed below, add the key for query strings you want strip',
-	];
-
-	// Work out what page we're handling
-	public function __construct()
-	{
-		$path = request()->path();
-		if (str_contains($path, 'query-strings')) {
-			$this->type = 'query-strings';
-		}
-	}
+	const BLUEPRINT = 'redirects';
 
 	public function index()
 	{
 		$redirects = Redirect::all()->toArray();
 
 		// Get a blueprint.So
-		$blueprint = with(new BlueprintRepository())->setDirectory(__DIR__ . '/../../../resources/blueprints')->find($this->type);
+		$blueprint = with(new BlueprintRepository())->setDirectory(__DIR__ . '/../../../resources/blueprints')->find(self::BLUEPRINT);
 		// Get a Fields object
 		$fields = $blueprint->fields();
 		// Add the values to the object
@@ -59,17 +35,16 @@ class AltRedirectController
 			'values' => $fields->values(),
 			'meta' => $fields->meta(),
 			'data' => $redirects,
-			'type' => $this->type,
-			'action' => $this->actions[$this->type],
-			'title' => $this->titles[$this->type],
-			'instructions' => $this->instructions[$this->type],
+			'action' => 'alt-redirect.create',
+			'title' => 'Redirect',
+			'instructions' => 'Manage your redirects here.',
 		]);
 	}
 
 	public function create(Request $request)
 	{
 		// Get a blueprint.
-		$blueprint = with(new BlueprintRepository())->setDirectory(__DIR__ . '/../../../resources/blueprints')->find($this->type);
+		$blueprint = with(new BlueprintRepository())->setDirectory(__DIR__ . '/../../../resources/blueprints')->find(self::BLUEPRINT);
 
 		// Get a Fields object
 		/** @var Fields $fields */
@@ -219,36 +194,5 @@ class AltRedirectController
 		}
 
 		return $redirects;
-	}
-
-	// Toggle a key in a certain item and return the data afterwards
-	public function toggle(Request $request)
-	{
-		$toggleKey = $request->get('toggleKey');
-		$index = $request->get('index');
-		$data = new Data($this->type);
-
-		switch ($this->type) {
-			case 'query-strings':
-				$item = $data->getByKey('query_string', $index);
-				if ($item === null) {
-					return response('Error finding item', 500);
-				}
-
-				if (!isset($item[$toggleKey])) {
-					$item[$toggleKey] = false;
-				}
-				$item[$toggleKey] = !$item[$toggleKey];
-				$data->setAll($item);
-				break;
-			default:
-				return response('Method not implemented', 500);
-		}
-		$data = new Data($this->type);
-		$values = $data->all();
-
-		return [
-			'data' => $values,
-		];
 	}
 }
