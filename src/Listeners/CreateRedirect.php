@@ -2,7 +2,9 @@
 
 namespace AltDesign\AltRedirect\Listeners;
 
+use AltDesign\AltRedirect\Models\OldRedirectUri;
 use AltDesign\AltRedirect\Models\Redirect;
+use AltDesign\AltRedirect\RedirectType;
 use Statamic\Entries\Entry;
 use Statamic\Events\CollectionTreeSaved;
 use Statamic\Events\EntrySaved;
@@ -19,10 +21,10 @@ class CreateRedirect
 
 		if ($event instanceof EntrySaved) {
 			$this->createRedirect($event->entry);
-		} elseif ($event instanceof CollectionTreeSaved) {
-			$entries = $this->treeToEntries($event->tree->tree());
-			$this->createRedirect($entries);
 		}
+
+		$entries = $this->treeToEntries($event->tree->tree());
+		$this->createRedirect($entries);
     }
 
     protected function treeToEntries(array $tree): array
@@ -65,18 +67,32 @@ class CreateRedirect
                 continue;
             }
 
-            if (!$temporaryRedirect = Redirect::getTemporaryRedirect($entry->id())) {
+            if (!$oldRedirectUri = OldRedirectUri::getByEntryId($entry->id())) {
                 continue;
             }
 
-			if ($temporaryRedirect->from === $entry->uri()) {
-				$temporaryRedirect->delete();
+			$oldUri = $oldRedirectUri->from;
+			$oldRedirectUri->delete();
+
+			if ($oldUri === $entry->uri()) {
 				continue;
 			}
 
-			$temporaryRedirect->to = $entry->uri();
-			$temporaryRedirect->temp_entry_id = null;
-			$temporaryRedirect->save();
+			Redirect::query()->where('from', $entry->uri())->delete();
+			Redirect::query()->where('from', $oldUri)->delete();
+
+			$redirect = Redirect::make(
+				from: $oldUri,
+				to: $entry->uri(),
+				redirectType: RedirectType::MOVED_PERMANENTLY->value,
+				sites: $entry->sites()
+			);
+
+			if ($redirect->validateRedirect()) {
+				return;
+			}
+
+			$redirect->save();
         }
     }
 }

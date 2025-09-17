@@ -15,7 +15,6 @@ class Redirect extends Model
 		'redirect_type',
 		'sites',
 		'is_regex',
-		'temp_entry_id',
 	];
 
 	protected $casts = [
@@ -28,7 +27,6 @@ class Redirect extends Model
 		string $redirectType,
 		array|Collection $sites,
 		?bool $isRegex = false,
-		?string $tempEntryId = null
 	): Redirect {
 		$redirect = new Redirect();
 		$redirect->fill([
@@ -38,7 +36,6 @@ class Redirect extends Model
 			'to' => $to,
 			'redirect_type' => $redirectType,
 			'sites' => $sites,
-			'temp_entry_id' => $tempEntryId,
 		]);
 
 		return $redirect;
@@ -47,13 +44,6 @@ class Redirect extends Model
 	public static function getByFromMd5(string $from): ?Redirect
 	{
 		return Redirect::query()->where('from_md5', $from)->first();
-	}
-
-	public static function getTemporaryRedirect(string $id): ?Redirect
-	{
-		return Redirect::query()
-			->where('temp_entry_id', $id)
-			->first();
 	}
 
 	public static function getRegexRedirect(string $from): ?Redirect
