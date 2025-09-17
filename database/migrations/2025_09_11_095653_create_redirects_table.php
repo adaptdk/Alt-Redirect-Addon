@@ -19,7 +19,6 @@ return new class extends Migration
             $table->string('redirect_type');
             $table->jsonb('sites')->default(json_encode([]));
 			$table->boolean('is_regex')->default(false);
-			$table->uuid('temp_entry_id')->unique()->nullable();
             $table->timestamps();
         });
     }

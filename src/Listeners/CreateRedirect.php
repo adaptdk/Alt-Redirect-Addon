@@ -13,7 +13,7 @@ class CreateRedirect
 {
     public function handle(CollectionTreeSaved|EntrySaved $event): void
     {
-        // if (! config('alt-redirect.listeners.create-redirect.enabled', false)) {
+        // if (! config('alt-redirect.listeners.create_redirect.enabled', false)) {
         //     return;
         // }
 

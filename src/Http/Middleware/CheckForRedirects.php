@@ -24,17 +24,18 @@ class CheckForRedirects
 	{
 		$path = $request->path();
 
-		if ($redirect = Redirect::getByFromMd5(md5($path))) {
-			if (in_array(Site::current(), $redirect->sites)) {
-				return $this->redirectWithPreservedParams($redirect->to, $redirect->redirect_type, $request);
-			}
+		if (!$request->isMethod('GET')) {
+			//No redirect
+			return $next($request);
 		}
 
-		if ($redirect = Redirect::getRegexRedirect($path)) {
-			// why #? preg_match delimiter must not be alphanumeric, backslash, or NUL
-			if (in_array(Site::current(), $redirect->sites) && preg_match('#' . $redirect->from . '#', $path)) {
-				$redirectTo = preg_replace('#' . $redirect->from . '#', $redirect->to, $path);
-				return $this->redirectWithPreservedParams($redirectTo, $redirect->redirect_type, $request);
+		$redirect = Redirect::getByFromMd5(md5($path)) ?: Redirect::getRegexRedirect($path);
+
+		if ($redirect) {
+			if (in_array(Site::current(), $redirect->sites)) {
+				$maxDepth = config('alt_redirect.redirect_chain_max_length', 100);
+				$redirect = Redirect::getRecursiveRedirect($redirect, $maxDepth);
+				return $this->redirectWithPreservedParams($redirect, $request);
 			}
 		}
 
@@ -42,8 +43,16 @@ class CheckForRedirects
 		return $next($request);
 	}
 
-	private function redirectWithPreservedParams(string $to, string $redirectType, Request $request): RedirectResponse|Redirector
+	private function redirectWithPreservedParams(Redirect $redirect, Request $request): RedirectResponse|Redirector
 	{
+		$to = $redirect->to;
+		$redirectType = $redirect->redirect_type;
+
+		if ($redirect->is_regex) {
+			// why #? preg_match delimiter must not be alphanumeric, backslash, or NUL
+			$to = preg_replace('#' . $redirect->from . '#', $to, $request->path());
+		}
+
 		$queryStrings = [];
 		foreach ($request->all() as $key => $value) {
 			$queryStrings[] = sprintf("%s=%s", $key, $value);
