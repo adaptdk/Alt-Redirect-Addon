@@ -1,5 +1,13 @@
-<?php namespace AltDesign\AltRedirect;
+<?php
 
+namespace AltDesign\AltRedirect;
+
+use AltDesign\AltRedirect\Listeners\StoreOldUri;
+use AltDesign\AltRedirect\Listeners\CreateRedirect;
+use Statamic\Events\CollectionTreeSaved;
+use Statamic\Events\CollectionTreeSaving;
+use Statamic\Events\EntrySaved;
+use Statamic\Events\EntrySaving;
 use Statamic\Providers\AddonServiceProvider;
 use Statamic\Facades\CP\Nav;
 use Statamic\Facades\Permission;
@@ -23,6 +31,23 @@ class ServiceProvider extends AddonServiceProvider
             \AltDesign\AltRedirect\Http\Middleware\CheckForRedirects::class,
         ]
     ];
+
+
+	protected $listen = [
+		EntrySaving::class => [
+			StoreOldUri::class,
+		],
+		CollectionTreeSaving::class => [
+			StoreOldUri::class,
+		],
+		EntrySaved::class => [
+			CreateRedirect::class,
+		],
+		CollectionTreeSaved::class => [
+			CreateRedirect::class,
+		],
+	];
+
 
     /**
      * Register our addon and child menus in the nav

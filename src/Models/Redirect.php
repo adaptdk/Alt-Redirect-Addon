@@ -2,9 +2,8 @@
 
 namespace AltDesign\AltRedirect\Models;
 
-use Illuminate\Contracts\Support\Arrayable;
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 
 class Redirect extends Model
 {
@@ -15,13 +14,21 @@ class Redirect extends Model
 		'redirect_type',
 		'sites',
 		'is_regex',
+		'temp_entry_id',
 	];
 
 	protected $casts = [
 		'sites' => 'array',
 	];
 
-	public static function make(string $from, string $to, string $redirectType, array $sites, $isRegex = false): Redirect
+	public static function make(
+		string $from,
+		string $to,
+		string $redirectType,
+		array|Collection $sites,
+		?bool $isRegex = false,
+		?string $tempEntryId = null
+	): Redirect
 	{
 		$redirect = new Redirect();
 		$redirect->fill([
@@ -31,6 +38,7 @@ class Redirect extends Model
 			'to' => $to,
 			'redirect_type' => $redirectType,
 			'sites' => $sites,
+			'temp_entry_id' => $tempEntryId,
 		]);
 
 		return $redirect;
@@ -41,9 +49,18 @@ class Redirect extends Model
 		return Redirect::query()->where('from_md5', $from)->first();
 	}
 
+	public static function getTemporaryRedirect(string $id): ?Redirect {
+		return Redirect::query()
+			->where('temp_entry_id', $id)
+			->first();
+	}
+
 	public static function getRegexRedirect(string $from): ?Redirect
 	{
-		return Redirect::query()->whereRaw('? ~ "from"', [$from])->first();
+		return Redirect::query()
+			->whereRaw('? ~ "from"', [$from])
+			->where('is_regex', true)
+			->first();
 	}
 
 	public static function getOverlapRegexRedirects(string $from): ?Redirect
@@ -52,7 +69,10 @@ class Redirect extends Model
 			return $overlap;
 		}
 
-		return Redirect::query()->whereRaw('"from" ~ ?', [$from])->first();
+		return Redirect::query()
+			->whereRaw('"from" ~ ?', [$from])
+			->where('is_regex', true)
+			->first();
 	}
 
 	public function validateRedirect(): ?array

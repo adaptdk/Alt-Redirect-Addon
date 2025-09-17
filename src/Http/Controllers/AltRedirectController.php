@@ -54,31 +54,25 @@ class AltRedirectController
 		$fields = $fields->addValues($values);
 		$fields->validate();
 
-		return DB::transaction(function () use ($request) {
-			$fromMd5 = md5($request->get('from'));
-			$redirect = Redirect::query()->updateOrCreate(
-				[
-					'from_md5' => $fromMd5,
-				],
-				[
-					'from' => $request->get('from'),
-					'to' => $request->get('to'),
-					'redirect_type' => $request->get('redirect_type'),
-					'sites' => $request->get('sites'),
-					'is_regex' => $request->get('is_regex'),
-				]
-			);
+		$fromMd5 = md5($request->get('from'));
+		$redirect = Redirect::make(
+			from: $request->get('from'),
+			to: $request->get('to'),
+			redirectType: $request->get('redirect_type'),
+			sites: $request->get('sites'),
+			isRegex: $request->get('is_regex'),
+		);
 
-			if ($message = $redirect->validateRedirect()) {
-				DB::rollBack();
-				return response()->json($message, 422);
-			}
+		if ($message = $redirect->validateRedirect()) {
+			DB::rollBack();
+			return response()->json($message, 422);
+		}
 
-			DB::commit();
-			return [
-				'data' => Redirect::all()->toArray(),
-			];
-		});
+		Redirect::query()->updateOrCreate(['from_md5' => $fromMd5], $redirect->toArray());
+
+		return [
+			'data' => Redirect::all()->toArray(),
+		];
 	}
 
 	/**
@@ -141,23 +135,20 @@ class AltRedirectController
 		return DB::transaction(function () use ($redirects) {
 			foreach ($redirects as $key => $redirect) {
 				$fromMd5 = md5($redirect['from']);
-				$redirect = Redirect::query()->updateOrCreate(
-					[
-						'from_md5' => $fromMd5,
-					],
-					[
-						'from_md5' => $fromMd5,
-						'from' => $redirect['from'],
-						'to' => $redirect['to'],
-						'redirect_type' => $redirect['redirect_type'],
-						'sites' => $redirect['sites'],
-					]
+				$redirect = Redirect::make(
+					from: $redirect['from'],
+					to: $redirect['to'],
+					redirectType: $redirect['redirect_type'],
+					sites: $redirect['sites'],
+					isRegex: $redirect['is_regex'],
 				);
 
 				if ($message = $redirect->validateRedirect()) {
 					DB::rollBack();
 					return response()->json([$key => $message], 422);
 				}
+
+				Redirect::query()->updateOrCreate(['from_md5' => $fromMd5], $redirect->toArray());
 			}
 
 			DB::commit();
