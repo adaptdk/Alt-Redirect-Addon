@@ -17,6 +17,8 @@ class CreateRedirect
 		//     return;
 		// }
 
+		return;
+
 		if ($event instanceof EntrySaved) {
 			Log::debug('EntrySaved');
 		} else {
