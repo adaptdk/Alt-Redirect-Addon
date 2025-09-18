@@ -14,24 +14,17 @@ class StoreOldUri
 		// if (! config('alt-redirect.listeners.create_redirect.enabled', false)) {
 		// 	return;
 		// }
-
-		// ray($event)->orange();
-
 		if ($event instanceof EntrySaving) {
-			// ray('we in')->orange();
 			if (!$event->entry->id()) {
-				// ray('No Id')->orange();
 				return;
 			}
 
 			$this->cacheEntryUri($event->entry->id());
-
 			return;
 		}
 
 		/** @var \Statamic\Structures\CollectionTreeDiff $diff */
 		$diff = $event->tree->diff();
-		// ray('Diff', $diff)->orange();
 
 		foreach ($diff->affected() as $entry) {
 			$this->cacheEntryUri($entry);
@@ -42,25 +35,21 @@ class StoreOldUri
 	{
 		$entry = Entry::find($entryId);
 
-
 		if (!$entry) {
-			// ray('No entry')->orange();
 			return;
 		}
 
 		if (!$uri = $entry->uri()) {
-			// ray('No uri')->orange();
 			return;
 		}
 
 		if (!$entry->published()) {
-			// ray('No published')->orange();
 			return;
 		}
 
 		// Delete existing temporary redirect
-		// ray('Delete existing temp')->orange();
-		RedirectOldUri::getByEntryId($entryId)?->delete();
-		RedirectOldUri::make($entryId, $uri)->save();
+		RedirectOldUri::getByEntryId($entry->id())?->delete();
+		$redirectOldUri = RedirectOldUri::make($entry->id(), $uri);
+		$redirectOldUri->save();
     }
 }
