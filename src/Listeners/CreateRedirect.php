@@ -33,6 +33,10 @@ class CreateRedirect
 				continue;
 			}
 
+			Log::info($entry->id());
+			Log::info($oldUri);
+			Log::info($entry->uri());
+
 			if ($oldUri === $entry->uri()) {
 				continue;
 			}
