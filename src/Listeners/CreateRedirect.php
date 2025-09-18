@@ -2,14 +2,12 @@
 
 namespace AltDesign\AltRedirect\Listeners;
 
-use AltDesign\AltRedirect\Models\OldRedirectUri;
+use AltDesign\AltRedirect\Models\RedirectOldUri;
 use AltDesign\AltRedirect\Models\Redirect;
 use AltDesign\AltRedirect\RedirectType;
-use Statamic\Entries\Entry;
 use Statamic\Events\CollectionTreeSaved;
 use Statamic\Events\EntrySaved;
 use Statamic\Facades\Entry as EntryFacade;
-use Statamic\Support\Arr;
 
 class CreateRedirect
 {
@@ -19,7 +17,7 @@ class CreateRedirect
 		//     return;
 		// }
 
-		$oldRedirectUris = OldRedirectUri::all();
+		$oldRedirectUris = RedirectOldUri::all();
 
 		foreach ($oldRedirectUris as $oldRedirectUri) {
 			$entry = EntryFacade::query()->find($oldRedirectUri->entry_id);
@@ -50,6 +48,6 @@ class CreateRedirect
 			$redirect->save();
 		}
 
-		OldRedirectUri::query()->truncate();
+		RedirectOldUri::query()->truncate();
 	}
 }

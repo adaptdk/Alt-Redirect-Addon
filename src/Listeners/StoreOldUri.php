@@ -2,7 +2,7 @@
 
 namespace AltDesign\AltRedirect\Listeners;
 
-use AltDesign\AltRedirect\Models\OldRedirectUri;
+use AltDesign\AltRedirect\Models\RedirectOldUri;
 use Statamic\Events\CollectionTreeSaving;
 use Statamic\Events\EntrySaving;
 use Statamic\Facades\Entry;
@@ -60,7 +60,7 @@ class StoreOldUri
 
 		// Delete existing temporary redirect
 		// ray('Delete existing temp')->orange();
-		OldRedirectUri::getByEntryId($entryId)?->delete();
-		OldRedirectUri::make($entryId, $uri)->save();
+		RedirectOldUri::getByEntryId($entryId)?->delete();
+		RedirectOldUri::make($entryId, $uri)->save();
     }
 }
