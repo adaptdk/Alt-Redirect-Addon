@@ -13,66 +13,21 @@ use Statamic\Support\Arr;
 
 class CreateRedirect
 {
-    public function handle(CollectionTreeSaved|EntrySaved $event): void
-    {
-        // if (! config('alt-redirect.listeners.create_redirect.enabled', false)) {
-        //     return;
-        // }
+	public function handle(CollectionTreeSaved|EntrySaved $event): void
+	{
+		// if (! config('alt-redirect.listeners.create_redirect.enabled', false)) {
+		//     return;
+		// }
 
-		if ($event instanceof EntrySaved) {
-			$this->createRedirect($event->entry);
-		}
+		$oldRedirectUris = OldRedirectUri::all();
 
-		$entries = $this->treeToEntries($event->tree->tree());
-		$this->createRedirect($entries);
-    }
+		foreach ($oldRedirectUris as $oldRedirectUri) {
+			$entry = EntryFacade::query()->find($oldRedirectUri->entry_id);
+			$oldUri = $oldRedirectUri->uri;
 
-    protected function treeToEntries(array $tree): array
-    {
-        $ids = [];
-
-        foreach ($tree as $item) {
-            $ids = array_merge($ids, $this->gatherEntryIds($item));
-        }
-
-        return EntryFacade::query()->whereIn('id', $ids)->get()->all();
-    }
-
-    protected function gatherEntryIds(array $item): array
-    {
-        $ids = [];
-
-        if (isset($item['entry'])) {
-            $ids[] = $item['entry'];
-        }
-
-        if (! isset($item['children'])) {
-            return $ids;
-        }
-
-        foreach ($item['children'] as $child) {
-            $ids = array_merge($ids, $this->gatherEntryIds($child));
-        }
-
-        return $ids;
-    }
-
-    protected function createRedirect(Entry|array $entries): void
-    {
-        $entries = Arr::wrap($entries);
-
-		/** @var Entry $entry */
-		foreach ($entries as $entry) {
-            if (!$entry->uri()) {
-                continue;
-            }
-
-            if (!$oldRedirectUri = OldRedirectUri::getByEntryId($entry->id())) {
-                continue;
-            }
-
-			$oldUri = $oldRedirectUri->from;
-			$oldRedirectUri->delete();
+			if (!$entry->uri()) {
+				continue;
+			}
 
 			if ($oldUri === $entry->uri()) {
 				continue;
@@ -89,10 +44,12 @@ class CreateRedirect
 			);
 
 			if ($redirect->validateRedirect()) {
-				return;
+				continue;
 			}
 
 			$redirect->save();
-        }
-    }
+		}
+
+		OldRedirectUri::query()->truncate();
+	}
 }

@@ -61,6 +61,6 @@ class StoreOldUri
 		// Delete existing temporary redirect
 		// ray('Delete existing temp')->orange();
 		OldRedirectUri::getByEntryId($entryId)?->delete();
-		OldRedirectUri::make($entryId, $uri);
+		OldRedirectUri::make($entryId, $uri)->save();
     }
 }
