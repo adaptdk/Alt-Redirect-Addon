@@ -6,14 +6,12 @@ use AltDesign\AltRedirect\Models\RedirectOldUri;
 use AltDesign\AltRedirect\Models\Redirect;
 use AltDesign\AltRedirect\RedirectType;
 use Illuminate\Support\Facades\Log;
-use Statamic\Events\CollectionTreeSaved;
 use Statamic\Events\EntrySaved;
 use Statamic\Facades\Entry as EntryFacade;
-use Symfony\Component\ErrorHandler\Debug;
 
 class CreateRedirect
 {
-	public function handle(CollectionTreeSaved|EntrySaved $event): void
+	public function handle(EntrySaved $event): void
 	{
 		// if (! config('alt-redirect.listeners.create_redirect.enabled', false)) {
 		//     return;
@@ -38,9 +36,6 @@ class CreateRedirect
 			if ($oldUri === $entry->uri()) {
 				continue;
 			}
-
-			Log::info($oldUri);
-			Log::info($entry->uri());
 
 			Redirect::query()->where('from', $entry->uri())->delete();
 			Redirect::query()->where('from', $oldUri)->delete();

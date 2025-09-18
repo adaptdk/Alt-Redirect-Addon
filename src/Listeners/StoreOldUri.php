@@ -9,26 +9,17 @@ use Statamic\Facades\Entry;
 
 class StoreOldUri
 {
-	public function handle(EntrySaving|CollectionTreeSaving $event): void
+	public function handle(EntrySaving $event): void
 	{
 		// if (! config('alt-redirect.listeners.create_redirect.enabled', false)) {
 		// 	return;
 		// }
-		if ($event instanceof EntrySaving) {
-			if (!$event->entry->id()) {
-				return;
-			}
 
-			$this->cacheEntryUri($event->entry->id());
+		if (!$event->entry->id()) {
 			return;
 		}
 
-		/** @var \Statamic\Structures\CollectionTreeDiff $diff */
-		$diff = $event->tree->diff();
-
-		foreach ($diff->affected() as $entry) {
-			$this->cacheEntryUri($entry);
-		}
+		$this->cacheEntryUri($event->entry->id());
 	}
 
 	protected function cacheEntryUri(string $entryId): void
@@ -46,6 +37,9 @@ class StoreOldUri
 		if (!$entry->published()) {
 			return;
 		}
+
+		ray($entry);
+		ray($entry->uri());
 
 		// Delete existing temporary redirect
 		RedirectOldUri::getByEntryId($entry->id())?->delete();

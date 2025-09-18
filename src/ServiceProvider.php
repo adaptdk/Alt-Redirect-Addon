@@ -37,13 +37,7 @@ class ServiceProvider extends AddonServiceProvider
 		EntrySaving::class => [
 			StoreOldUri::class,
 		],
-		CollectionTreeSaving::class => [
-			StoreOldUri::class,
-		],
 		EntrySaved::class => [
-			CreateRedirect::class,
-		],
-		CollectionTreeSaved::class => [
 			CreateRedirect::class,
 		],
 	];
