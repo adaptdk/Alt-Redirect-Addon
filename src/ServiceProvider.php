@@ -2,12 +2,7 @@
 
 namespace AltDesign\AltRedirect;
 
-use AltDesign\AltRedirect\Listeners\StoreOldUri;
-use AltDesign\AltRedirect\Listeners\CreateRedirect;
-use Statamic\Events\CollectionTreeSaved;
-use Statamic\Events\CollectionTreeSaving;
-use Statamic\Events\EntrySaved;
-use Statamic\Events\EntrySaving;
+use AltDesign\AltRedirect\Events\RedirectCreated;
 use Statamic\Providers\AddonServiceProvider;
 use Statamic\Facades\CP\Nav;
 use Statamic\Facades\Permission;
@@ -32,18 +27,13 @@ class ServiceProvider extends AddonServiceProvider
         ]
     ];
 
-
 	protected $listen = [
-		EntrySaving::class => [
-			StoreOldUri::class,
-		],
-		EntrySaved::class => [
-			CreateRedirect::class,
+		RedirectCreated::class => [
+			//
 		],
 	];
 
-
-    /**
+	/**
      * Register our addon and child menus in the nav
      *
      * @return self
@@ -74,8 +64,8 @@ class ServiceProvider extends AddonServiceProvider
         return $this;
     }
 
-    public function bootAddon()
-    {
+    public function bootAddon(): void
+	{
         $this->addToNav()
             ->registerPermissions();
 

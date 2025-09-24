@@ -7,11 +7,7 @@ use Illuminate\Routing\Redirector;
 use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Http\Request;
 use Closure;
-
 use Statamic\Facades\Site;
-use Statamic\Facades\YAML;
-
-use AltDesign\AltRedirect\Helpers\Data;
 
 class CheckForRedirects
 {
@@ -46,7 +42,6 @@ class CheckForRedirects
 	private function redirectWithPreservedParams(Redirect $redirect, Request $request): RedirectResponse|Redirector
 	{
 		$to = $redirect->to;
-		$redirectType = $redirect->redirect_type;
 
 		if ($redirect->is_regex) {
 			// why #? preg_match delimiter must not be alphanumeric, backslash, or NUL
@@ -63,7 +58,7 @@ class CheckForRedirects
 			$to .= implode('&', $queryStrings);
 		}
 
-		return redirect($to, $redirectType, config('alt-redirect.headers', []));
+		return redirect($to, $redirect->redirect_type, config('alt-redirect.headers', []));
 	}
 }
 

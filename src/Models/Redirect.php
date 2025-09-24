@@ -2,6 +2,7 @@
 
 namespace AltDesign\AltRedirect\Models;
 
+use AltDesign\AltRedirect\Events\RedirectCreated;
 use Exception;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -20,6 +21,13 @@ class Redirect extends Model
 	protected $casts = [
 		'sites' => 'array',
 	];
+
+	protected static function booted(): void
+	{
+		self::created(static function (Redirect $redirect): void {
+			RedirectCreated::dispatch($redirect);
+		});
+	}
 
 	public static function make(
 		string $from,
@@ -50,18 +58,6 @@ class Redirect extends Model
 	{
 		return Redirect::query()
 			->whereRaw('? ~ "from"', [$from])
-			->where('is_regex', true)
-			->first();
-	}
-
-	public static function getOverlapRegexRedirects(string $from): ?Redirect
-	{
-		if ($overlap = self::getRegexRedirect($from)) {
-			return $overlap;
-		}
-
-		return Redirect::query()
-			->whereRaw('"from" ~ ?', [$from])
 			->where('is_regex', true)
 			->first();
 	}
@@ -113,6 +109,19 @@ class Redirect extends Model
 		return null;
 	}
 
+	private function getOverlapRegexRedirects(string $from): ?Redirect
+	{
+		if ($overlap = self::getRegexRedirect($from)) {
+			return $overlap;
+		}
+
+		return Redirect::query()
+			->whereRaw('"from" ~ ?', [$from])
+			->where('is_regex', true)
+			->first();
+	}
+
+	// Retrieve the final URL of a redirect chain, or just the single redirect if no chain exists.
 	public static function getRecursiveRedirect(Redirect $redirect, int $maxDepth = 100, $visited = [], int $depth = 0): Redirect
 	{
 		$fromMd5 = md5($redirect->from);
