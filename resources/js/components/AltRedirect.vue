@@ -26,7 +26,6 @@ export default ({
       search: '',
       fileName: 'Choose a file...',
       selectedPage: '',
-      formKey: 0,
       paginationData: {
         current_page: 1,
         last_page: 1,
@@ -37,6 +36,7 @@ export default ({
       },
       searchTimeout: null,
       loading: false,
+      showForm: true,
     };
   },
   watch: {
@@ -86,9 +86,19 @@ export default ({
       }
     },
     updateItems(res) {
+      // Hack to reset form
       this.values = res.data.values;
-      this.formKey++;
-      this.fetchPaginatedData();
+      this.showForm = false;
+
+      this.$nextTick(() => {
+        this.showForm = true;
+
+        this.$nextTick(() => {
+          this.$forceUpdate();
+          this.fetchPaginatedData();
+          this.$toast.success('Form reset');
+        });
+      });
     },
     setPage(page) {
       if (page >= 1 && page <= this.lastPage) {
@@ -148,8 +158,8 @@ export default ({
     <h1 class="flex-1">{{ title }}</h1>
     <h2 class="flex-1">{{ instructions }}</h2>
 
-    <publish-form :key="formKey" :title="''" :action="action" :blueprint="blueprint" :meta="meta" :values="values"
-                  @saved="updateItems($event)"></publish-form>
+    <publish-form v-if="showForm" :title="''" :action="action" :blueprint="blueprint" :meta="meta" :values="values"
+                  @saved="updateItems($event)" />
 
     <div class="card overflow-hidden p-0">
       <div class="mt-4 pb-2 px-4">
@@ -206,9 +216,7 @@ export default ({
               {{ (item.sites && item.sites.length) ? item.sites.join(', ') : 'Unknown' }}
             </td>
             <td>
-              <button @click="deleteRedirect(item.id)" class="btn"
-                      style="color: #bc2626;">Remove
-              </button>
+              <button @click="deleteRedirect(item.id)" class="btn-danger">Remove</button>
             </td>
           </tr>
           </tbody>
@@ -220,7 +228,7 @@ export default ({
                                                                                                       v-html="paginationData.last_page"></span>
         </div>
         <div class="w-1/3 flex items-center justify-center">
-                    <span style="height: 15px; margin: 0 15px; width: 12px;" class="cursor-pointer"
+                    <span v-if="currentPage > 1" style="height: 15px; margin: 0 15px; width: 12px;" class="cursor-pointer"
                           @click="setPage(currentPage - 1 > 0 ? currentPage - 1 : 1)">
                         <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="205"
                              height="205" viewBox="0 0 205 205"><defs><clipPath id="clip-LEFT"><rect width="205"
@@ -234,7 +242,7 @@ export default ({
           <!-- First Page -->
           <span v-if="currentPage > 1" class="cursor-pointer py-1 mx-1"
                 @click="setPage(1)">1</span>
-          <span v-if="currentPage == 1" class="cursor-pointer py-1 mx-1 font-semibold"
+          <span v-if="currentPage == 1" class="cursor-pointer py-1 mx-1 font-semibold text-blue"
                 @click="setPage(1)">1</span>
 
           <!-- Ellipsis for Previous Pages -->
@@ -246,7 +254,7 @@ export default ({
 
           <!-- Current Page (not shown if it's the first or last page) -->
           <span v-if="currentPage !== 1 && currentPage !== lastPage"
-                class="cursor-pointer py-1 mx-1 font-semibold">{{ currentPage }}</span>
+                class="cursor-pointer py-1 mx-1 font-semibold text-blue">{{ currentPage }}</span>
 
           <!-- Next Page -->
           <span v-if="currentPage < lastPage - 1" class="cursor-pointer py-1 mx-1"
@@ -259,9 +267,9 @@ export default ({
           <span v-if="currentPage < lastPage" class="cursor-pointer py-1 mx-1"
                 @click="setPage(lastPage)">{{ lastPage }}</span>
           <span v-if="currentPage == lastPage && lastPage != 1"
-                class="cursor-pointer py-1 mx-1 font-semibold"
+                class="cursor-pointer py-1 mx-1 font-semibold text-blue"
                 @click="setPage(lastPage)">{{ lastPage }}</span>
-          <span style="height: 15px; margin: 0 15px; width: 12px;" class="cursor-pointer"
+          <span v-if="currentPage < lastPage" style="height: 15px; margin: 0 15px; width: 12px;" class="cursor-pointer"
                 @click="setPage(currentPage + 1 < lastPage ? currentPage + 1 : lastPage)">
                         <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="205"
                              height="205" viewBox="0 0 205 205"><defs><clipPath id="clip-RIGHT"><rect width="205"

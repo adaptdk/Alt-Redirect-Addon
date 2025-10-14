@@ -2,7 +2,6 @@
 
 namespace AltDesign\AltRedirect\Http\Controllers;
 
-use AltDesign\AltRedirect\Helpers\Data;
 use AltDesign\AltRedirect\Models\Redirect;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -97,6 +96,8 @@ class AltRedirectController
 		Redirect::query()->updateOrCreate(['from_md5' => $fromMd5], $redirect->toArray());
 
 		$fields = $fields->addValues([]);
+		$fields = $fields->preProcess();
+
 		return response()->json(['values' => $fields->values()]);
 	}
 
