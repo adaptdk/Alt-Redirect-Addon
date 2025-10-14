@@ -2,10 +2,14 @@
 
 namespace AltDesign\AltRedirect;
 
+use AltDesign\AltRedirect\Commands\ClearOldSlugs;
 use AltDesign\AltRedirect\Events\RedirectCreated;
-use Statamic\Providers\AddonServiceProvider;
+use AltDesign\AltRedirect\Listeners\EntrySavedUpdateRedirect;
+use AltDesign\AltRedirect\Listeners\EntrySavingUpdateRedirect;
+use Statamic\Events\EntrySaving;
 use Statamic\Facades\CP\Nav;
 use Statamic\Facades\Permission;
+use Statamic\Providers\AddonServiceProvider;
 
 class ServiceProvider extends AddonServiceProvider
 {
@@ -31,6 +35,14 @@ class ServiceProvider extends AddonServiceProvider
 		RedirectCreated::class => [
 			//
 		],
+		EntrySaving::class => [
+			EntrySavingUpdateRedirect::class,
+			EntrySavedUpdateRedirect::class,
+		],
+	];
+
+	protected $commands = [
+		ClearOldSlugs::class,
 	];
 
 	/**

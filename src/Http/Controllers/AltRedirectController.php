@@ -64,7 +64,6 @@ class AltRedirectController
 		);
 
 		if ($message = $redirect->validateRedirect()) {
-			DB::rollBack();
 			return response()->json($message, 422);
 		}
 
@@ -72,6 +71,7 @@ class AltRedirectController
 
 		return [
 			'data' => Redirect::all()->toArray(),
+			'values' => $values,
 		];
 	}
 

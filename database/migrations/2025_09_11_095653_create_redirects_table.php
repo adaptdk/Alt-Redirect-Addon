@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('redirects', function (Blueprint $table) {
             $table->id();
-            $table->string('from_md5')->unique();
+            $table->string('from_md5')->unique()->index();
             $table->string('from');
             $table->string('to');
             $table->string('redirect_type');

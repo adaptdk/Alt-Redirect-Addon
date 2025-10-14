@@ -9,6 +9,8 @@ use Illuminate\Support\Collection;
 
 class Redirect extends Model
 {
+	 public static array $oldSlugs = [];
+
 	protected $fillable = [
 		'from_md5',
 		'from',
@@ -122,7 +124,7 @@ class Redirect extends Model
 	}
 
 	// Retrieve the final URL of a redirect chain, or just the single redirect if no chain exists.
-	public static function getRecursiveRedirect(Redirect $redirect, int $maxDepth = 100, $visited = [], int $depth = 0): Redirect
+	public static function getRecursiveRedirect(Redirect $redirect, int $maxDepth = 100, &$visited = [], int $depth = 0): Redirect
 	{
 		$fromMd5 = md5($redirect->from);
 
@@ -135,7 +137,7 @@ class Redirect extends Model
 		// Check if any direct redirects
 		if ($nextRedirect = self::getByFromMd5(md5($redirect->to))) {
 			$depth += 1;
-			return self::getRecursiveRedirect($nextRedirect, $visited, $depth, $maxDepth);
+			return self::getRecursiveRedirect($nextRedirect, $maxDepth, $visited, $depth);
 		}
 
 		// Check if any regex redirects
@@ -150,7 +152,7 @@ class Redirect extends Model
 			// Check if any direct redirects
 			if ($nextRedirect = self::getByFromMd5(md5($redirectTo))) {
 				$depth += 1;
-				return self::getRecursiveRedirect($nextRedirect, $visited, $depth, $maxDepth);
+				return self::getRecursiveRedirect($nextRedirect, $maxDepth, $visited, $depth);
 			}
 		}
 
