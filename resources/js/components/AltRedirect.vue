@@ -96,7 +96,6 @@ export default ({
         this.$nextTick(() => {
           this.$forceUpdate();
           this.fetchPaginatedData();
-          this.$toast.success('Form reset');
         });
       });
     },
@@ -120,26 +119,28 @@ export default ({
       }
     },
     importFromCSV() {
-      if (!this.selectedFile) {
-        alert('You haven\'t attached a CSV file!');
-        return;
-      }
+      if (confirm('Are you sure you want to import this CSV file? We recommend making a backup of the existing redirects first.')) {
+        if (!this.selectedFile) {
+          alert('You haven\'t attached a CSV file!');
+          return;
+        }
 
-      var formData = new FormData();
-      formData.append('file', this.selectedFile);
-      Statamic.$axios.post(cp_url('alt-design/alt-redirect/import'), formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      }).then(res => {
-        this.$toast.success('Redirects imported successfully');
-        this.fetchPaginatedData();
-        this.selectedFile = null;
-        this.fileName = 'Choose a file...';
-      }).catch(err => {
-        console.error(err);
-        this.$toast.error('Invalid CSV file format. Check console for details.');
-      });
+        var formData = new FormData();
+        formData.append('file', this.selectedFile);
+        Statamic.$axios.post(cp_url('alt-design/alt-redirect/import'), formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }).then(res => {
+          this.$toast.success('Redirects imported successfully');
+          this.fetchPaginatedData();
+          this.selectedFile = null;
+          this.fileName = 'Choose a file...';
+        }).catch(err => {
+          console.error(err);
+          this.$toast.error('Invalid CSV file format. Check console for details.');
+        });
+      }
     },
     handleFileUpload(event) {
       this.selectedFile = event.target.files[0];
@@ -169,10 +170,10 @@ export default ({
         <table data-size="sm" tabindex="0" class="data-table" style="table-layout: fixed">
           <thead>
           <tr>
-            <th class="group from-column sortable-column" style="width:33%">
+            <th class="group from-column" style="width:33%">
               <span>From</span>
             </th>
-            <th class="group from-column sortable-column pr-8 w-24" style="width:33%">
+            <th class="group from-column pr-8 w-24" style="width:33%">
               <span>To</span>
             </th>
             <th class="group to-column pr-8 w-8" style="width:8%">
