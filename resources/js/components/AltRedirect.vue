@@ -13,12 +13,11 @@ export default ({
   },
   computed: {
     lastPage() {
-      return Math.ceil(this.totalItems / this.perPage);
+      return this.paginationData.last_page || 1;
     },
   },
   data() {
     return {
-      itemsReady: [],
       itemsSliced: [],
       perPage: 10,
       currentPage: 1,
@@ -28,58 +27,85 @@ export default ({
       fileName: 'Choose a file...',
       selectedPage: '',
       formKey: 0,
+      paginationData: {
+        current_page: 1,
+        last_page: 1,
+        per_page: 10,
+        total: 0,
+        from: 0,
+        to: 0,
+      },
+      searchTimeout: null,
+      loading: false,
     };
   },
   watch: {
     search: {
-      immediate: true,
       handler() {
-        this.sliceItems();
+        // Debounce search to avoid too many requests
+        if (this.searchTimeout) {
+          clearTimeout(this.searchTimeout);
+        }
+        this.searchTimeout = setTimeout(() => {
+          this.currentPage = 1;
+          this.fetchPaginatedData();
+        }, 300);
       },
     },
   },
   mounted() {
-    this.itemsReady = this.items;
-    this.totalItems = this.items.length;
-    this.sliceItems();
+    this.fetchPaginatedData();
   },
   methods: {
+    async fetchPaginatedData() {
+      this.loading = true;
+      try {
+        const response = await Statamic.$axios.get(cp_url('alt-design/alt-redirect/paginated'), {
+          params: {
+            page: this.currentPage,
+            per_page: this.perPage,
+            search: this.search,
+          },
+        });
+
+        this.itemsSliced = response.data.data;
+        this.paginationData = {
+          current_page: response.data.current_page,
+          last_page: response.data.last_page,
+          per_page: response.data.per_page,
+          total: response.data.total,
+          from: response.data.from,
+          to: response.data.to,
+        };
+        this.totalItems = response.data.total;
+      } catch (error) {
+        console.error('Error fetching paginated data:', error);
+        this.$toast.error('Error loading redirects');
+      } finally {
+        this.loading = false;
+      }
+    },
     updateItems(res) {
-      this.itemsReady = res.data.data;
-      this.totalItems = res.data.data.length;
       this.values = res.data.values;
       this.formKey++;
-      this.sliceItems();
+      this.fetchPaginatedData();
     },
     setPage(page) {
-      this.currentPage = page;
-      this.sliceItems();
-    },
-    sliceItems() {
-      let temp = this.itemsReady;
-
-      if (this.search) {
-        temp = temp.filter(item => {
-          // Convert all values to string and lower case for case-insensitive comparison
-          let tempArr = Object.values(item).map(value => value.toString().toLowerCase());
-          // Check if any value includes the search string
-          return tempArr.some(value => value.includes(this.search.toLowerCase()));
-        });
+      if (page >= 1 && page <= this.lastPage) {
+        this.currentPage = page;
+        this.fetchPaginatedData();
       }
-
-      const start = (this.currentPage - 1) * this.perPage;
-      const end = start + this.perPage;
-      this.totalItems = temp.length;
-      this.itemsSliced = temp.slice(start, end);
     },
     deleteRedirect(id) {
       if (confirm('Are you sure you want to delete this redirect?')) {
         Statamic.$axios.post(cp_url('alt-design/alt-redirect/delete'), {
           id: id,
         }).then(res => {
-          this.updateItems(res);
+          this.$toast.success('Redirect deleted successfully');
+          this.fetchPaginatedData();
         }).catch(err => {
-          console.log(err);
+          console.error(err);
+          this.$toast.error('Error deleting redirect');
         });
       }
     },
@@ -91,16 +117,17 @@ export default ({
 
       var formData = new FormData();
       formData.append('file', this.selectedFile);
-      formData.append('data', JSON.stringify(this.itemsReady));
       Statamic.$axios.post(cp_url('alt-design/alt-redirect/import'), formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       }).then(res => {
-        location.reload();
-        return;
+        this.$toast.success('Redirects imported successfully');
+        this.fetchPaginatedData();
+        this.selectedFile = null;
+        this.fileName = 'Choose a file...';
       }).catch(err => {
-        console.log(err);
+        console.error(err);
         this.$toast.error('Invalid CSV file format. Check console for details.');
       });
     },
@@ -109,7 +136,7 @@ export default ({
       this.fileName = this.selectedFile ? this.selectedFile.name : 'Choose a file...';
     },
     dropdownPageChange() {
-      this.setPage(this.selectedPage);
+      this.setPage(parseInt(this.selectedPage));
     },
   },
 });
@@ -126,7 +153,7 @@ export default ({
 
     <div class="card overflow-hidden p-0">
       <div class="mt-4 pb-2 px-4">
-        <input type="text" class="input-text" v-model="search" placeholder="Search">
+        <input type="text" class="input-text" v-model="search" placeholder="Search redirects..." :disabled="loading">
       </div>
       <div class="px-2">
         <table data-size="sm" tabindex="0" class="data-table" style="table-layout: fixed">
@@ -151,7 +178,18 @@ export default ({
           </tr>
           </thead>
           <tbody>
-          <tr v-for="item in itemsSliced" :key="item.id" style="width : 100%; overflow: clip">
+          <tr v-if="loading">
+            <td colspan="6" class="text-center py-8">
+              <div class="loading inline-block"></div>
+              Loading redirects...
+            </td>
+          </tr>
+          <tr v-else-if="itemsSliced.length === 0">
+            <td colspan="6" class="text-center py-8 text-gray-600">
+              {{ search ? 'No redirects match your search.' : 'No redirects found.' }}
+            </td>
+          </tr>
+          <tr v-else v-for="item in itemsSliced" :key="item.id" style="width : 100%; overflow: clip">
             <td>
               {{ item.from }}
             </td>
@@ -176,10 +214,10 @@ export default ({
           </tbody>
         </table>
       </div>
-      <div class="pagination text-sm py-4 px-4 flex items-center justify-between">
+      <div v-if="!loading && totalItems > 0" class="pagination text-sm py-4 px-4 flex items-center justify-between">
         <div class="w-1/3 flex items-center">
-          Page <span class="font-semibold mx-1" v-html="currentPage"></span> of <span class="mx-1"
-                                                                                      v-html="lastPage"></span>
+          Page <span class="font-semibold mx-1" v-html="paginationData.current_page"></span> of <span class="mx-1"
+                                                                                                      v-html="paginationData.last_page"></span>
         </div>
         <div class="w-1/3 flex items-center justify-center">
                     <span style="height: 15px; margin: 0 15px; width: 12px;" class="cursor-pointer"

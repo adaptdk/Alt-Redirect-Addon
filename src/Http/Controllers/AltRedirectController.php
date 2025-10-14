@@ -19,14 +19,12 @@ class AltRedirectController
 
 	public function index()
 	{
-		$redirects = Redirect::all()->toArray();
-
-		// Get a blueprint.So
+		// Get a blueprint.
 		$blueprint = with(new BlueprintRepository())->setDirectory(__DIR__ . '/../../../resources/blueprints')->find(self::BLUEPRINT);
 		// Get a Fields object
 		$fields = $blueprint->fields();
-		// Add the values to the object
-		$fields = $fields->addValues($redirects);
+		// Add empty values for initial load
+		$fields = $fields->addValues([]);
 		// Pre-process the values.
 		$fields = $fields->preProcess();
 
@@ -34,10 +32,39 @@ class AltRedirectController
 			'blueprint' => $blueprint->toPublishArray(),
 			'values' => $fields->values(),
 			'meta' => $fields->meta(),
-			'data' => $redirects,
+			'data' => [],
 			'action' => 'alt-redirect.create',
 			'title' => 'Redirect',
 			'instructions' => 'Manage your redirects here.',
+		]);
+	}
+
+	public function paginated(Request $request)
+	{
+		$perPage = $request->get('per_page', 10);
+		$search = $request->get('search', '');
+
+		$query = Redirect::query();
+
+		// Apply search filter if provided
+		if (!empty($search)) {
+			$query->where(function ($q) use ($search) {
+				$q->where('from', 'LIKE', "%{$search}%")
+				  ->orWhere('to', 'LIKE', "%{$search}%")
+				  ->orWhere('redirect_type', 'LIKE', "%{$search}%");
+			});
+		}
+
+		$redirects = $query->paginate($perPage);
+
+		return response()->json([
+			'data' => $redirects->items(),
+			'current_page' => $redirects->currentPage(),
+			'last_page' => $redirects->lastPage(),
+			'per_page' => $redirects->perPage(),
+			'total' => $redirects->total(),
+			'from' => $redirects->firstItem(),
+			'to' => $redirects->lastItem(),
 		]);
 	}
 
@@ -69,10 +96,8 @@ class AltRedirectController
 
 		Redirect::query()->updateOrCreate(['from_md5' => $fromMd5], $redirect->toArray());
 
-		return [
-			'data' => Redirect::all()->toArray(),
-			'values' => $values,
-		];
+		$fields = $fields->addValues([]);
+		return response()->json(['values' => $fields->values()]);
 	}
 
 	/**
@@ -83,9 +108,7 @@ class AltRedirectController
 		$id = $request->get('id');
 		Redirect::query()->find($id)?->delete();
 
-		return [
-			'data' => Redirect::all()->toArray(),
-		];
+		return response(null, 204);
 	}
 
 	// Import and Export can stay hardcoded to redirects since I/O for Query Strings aren't supported atm
@@ -152,9 +175,7 @@ class AltRedirectController
 			}
 
 			DB::commit();
-			return [
-				'data' => Redirect::all()->toArray(),
-			];
+			return response(null, 204);
 		});
 	}
 
