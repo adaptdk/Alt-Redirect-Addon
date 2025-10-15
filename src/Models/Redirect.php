@@ -22,6 +22,7 @@ class Redirect extends Model
 
 	protected $casts = [
 		'sites' => 'array',
+		'is_regex' => 'bool',
 	];
 
 	protected static function booted(): void

@@ -127,7 +127,7 @@ class AltRedirectController
 						$redirect->to,
 						$redirect->redirect_type,
 						implode(',', $redirect->sites),
-						$redirect->is_regex,
+						$redirect->is_regex ? 1 : 0,
 					]);
 				}
 			});
@@ -154,6 +154,7 @@ class AltRedirectController
 			'*.to' => ['required', 'string'],
 			'*.redirect_type' => ['required', 'string', Rule::in(['301', '302', '307', '308'])],
 			'*.sites' => ['required', 'array'],
+			'*.is_regex' => ['required', 'bool'],
 		])->validate();
 
 		return DB::transaction(function () use ($redirects) {
@@ -189,10 +190,11 @@ class AltRedirectController
 			$headers = fgetcsv($handle);
 			while (($row = fgetcsv($handle)) !== false) {
 				$redirect = [
-					'from' => $row[1],
-					'to' => $row[2],
-					'redirect_type' => $row[3],
-					'sites' => !empty($row[4] ?? false) ? explode(',', $row[4]) : ['default'],
+					'from' => $row[0],
+					'to' => $row[1],
+					'redirect_type' => $row[2],
+					'sites' => !empty($row[3] ?? false) ? explode(',', $row[3]) : ['default'],
+					'is_regex' => $row[4],
 				];
 				// Skip the redirect if it'll create an infinite loop (handles empty redirects too)
 				if ($redirect['to'] === $redirect['from']) {
