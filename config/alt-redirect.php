@@ -6,10 +6,10 @@ return [
 
 	'events' => [
 		'entry' => [
-			// Rather or not the redirects to the updated entry should be updated to the new slug
+			// Rather or not the redirects to the updated entry should be updated to the new uri
 			'update_redirect_to_entry' => false,
-			// Rather or not a redirect should be created from the old slug to the new slug
-			'create_redirect_from_old_to_new_slug' => false,
+			// Rather or not a redirect should be created from the old uri to the new uri
+			'create_redirect_from_old_to_new_uri' => false,
 		],
 	],
 ];

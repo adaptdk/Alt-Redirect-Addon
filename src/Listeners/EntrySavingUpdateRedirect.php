@@ -25,11 +25,15 @@ class EntrySavingUpdateRedirect
 		}
 
 		$entry = $event->entry;
+
 		$newSlug = $entry->slug();
 		$originalSlug = $entry->getOriginal()['slug'];
 
+		$newUri = $entry->uri();
+		$originalUri = str_replace($newSlug, $originalSlug, $newUri);
+
 		if ($originalSlug !== $newSlug) {
-			Redirect::$oldSlugs[$originalSlug] = $newSlug;
+			Redirect::$oldUris[$originalUri] = $newUri;
 		}
 	}
 }

@@ -5,21 +5,21 @@ namespace AltDesign\AltRedirect\Commands;
 use AltDesign\AltRedirect\Models\Redirect;
 use Illuminate\Console\Command;
 
-class ClearOldSlugs extends Command
+class ClearOldUris extends Command
 {
     /**
      * The name and signature of the console command.
      *
      * @var string
      */
-    protected $signature = 'redirect:clear-old-slugs';
+    protected $signature = 'redirect:clear-old-uris';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Clear the static array of old slugs used to create redirects';
+    protected $description = 'Clear the static array of old uris used to create redirects';
     /**
      * Create a new command instance.
      *
@@ -37,7 +37,7 @@ class ClearOldSlugs extends Command
      */
     public function handle()
     {
-		Redirect::$oldSlugs = [];
-		self::info('Old slugs are cleared');
+		Redirect::$oldUris = [];
+		self::info('Old uris are cleared');
     }
 }

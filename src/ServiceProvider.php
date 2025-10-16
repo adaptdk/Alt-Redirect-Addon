@@ -2,7 +2,7 @@
 
 namespace AltDesign\AltRedirect;
 
-use AltDesign\AltRedirect\Commands\ClearOldSlugs;
+use AltDesign\AltRedirect\Commands\ClearOldUris;
 use AltDesign\AltRedirect\Events\RedirectCreated;
 use AltDesign\AltRedirect\Listeners\EntrySavedUpdateRedirect;
 use AltDesign\AltRedirect\Listeners\EntrySavingUpdateRedirect;
@@ -42,7 +42,7 @@ class ServiceProvider extends AddonServiceProvider
 	];
 
 	protected $commands = [
-		ClearOldSlugs::class,
+		ClearOldUris::class,
 	];
 
 	/**

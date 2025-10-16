@@ -9,7 +9,7 @@ use Illuminate\Support\Collection;
 
 class Redirect extends Model
 {
-	 public static array $oldSlugs = [];
+	 public static array $oldUris = [];
 
 	protected $fillable = [
 		'from_md5',
