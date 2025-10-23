@@ -6,6 +6,7 @@ use AltDesign\AltRedirect\Commands\ClearOldUris;
 use AltDesign\AltRedirect\Events\RedirectCreated;
 use AltDesign\AltRedirect\Listeners\EntrySavedUpdateRedirect;
 use AltDesign\AltRedirect\Listeners\EntrySavingUpdateRedirect;
+use Statamic\Events\EntrySaved;
 use Statamic\Events\EntrySaving;
 use Statamic\Facades\CP\Nav;
 use Statamic\Facades\Permission;
@@ -37,6 +38,8 @@ class ServiceProvider extends AddonServiceProvider
 		],
 		EntrySaving::class => [
 			EntrySavingUpdateRedirect::class,
+		],
+		EntrySaved::class => [
 			EntrySavedUpdateRedirect::class,
 		],
 	];
