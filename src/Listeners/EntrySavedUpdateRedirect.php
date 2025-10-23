@@ -4,7 +4,7 @@ namespace AltDesign\AltRedirect\Listeners;
 
 use AltDesign\AltRedirect\Models\Redirect;
 use AltDesign\AltRedirect\RedirectType;
-use Statamic\Events\EntrySaving;
+use Statamic\Events\EntrySaved;
 
 class EntrySavedUpdateRedirect
 {
@@ -19,7 +19,7 @@ class EntrySavedUpdateRedirect
 	/**
 	 * Handle the event.
 	 */
-	public function handle(EntrySaving $event): void
+	public function handle(EntrySaved $event): void
 	{
 		if (!config('alt-redirect.events.entry.update_redirect_to_entry', false)) {
 			return;
