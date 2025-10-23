@@ -25,9 +25,15 @@ class EntrySavingUpdateRedirect
 		}
 
 		$entry = $event->entry;
+		$originalEntry =  $entry->getOriginal();
+
+		// If there is no original entry, then it's because a entry is being created
+		if (empty($originalEntry)) {
+			return;
+		}
 
 		$newSlug = $entry->slug();
-		$originalSlug = $entry->getOriginal()['slug'];
+		$originalSlug = $originalEntry['slug'];
 
 		$newUri = $entry->uri();
 		$originalUri = str_replace($newSlug, $originalSlug, $newUri);
