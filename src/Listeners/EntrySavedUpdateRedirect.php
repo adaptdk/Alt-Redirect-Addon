@@ -36,7 +36,7 @@ class EntrySavedUpdateRedirect
 				->where('from', $originalUri)
 				->update(['from' => $newUri]);
 
-			if (config('alt-redirect.events.entry.create_redirect_from_old_to_new_slug', false)) {
+			if (config('alt-redirect.events.entry.create_redirect_from_old_to_new_uri', false)) {
 				// Remove all loops created potentially created by the "from change above
 				Redirect::query()
 					->whereColumn('from', 'to')
