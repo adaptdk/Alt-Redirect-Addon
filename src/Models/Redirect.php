@@ -43,8 +43,8 @@ class Redirect extends Model
 		$redirect->fill([
 			'from_md5' => md5($from),
 			'is_regex' => $isRegex,
-			'from' => $from,
-			'to' => $to,
+			'from' => ltrim($from, '/'),
+			'to' => ltrim($to, '/'),
 			'redirect_type' => $redirectType,
 			'sites' => $sites,
 		]);

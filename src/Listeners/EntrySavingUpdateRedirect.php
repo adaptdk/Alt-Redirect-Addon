@@ -35,7 +35,7 @@ class EntrySavingUpdateRedirect
 		$newSlug = $entry->slug();
 		$originalSlug = $originalEntry['slug'];
 
-		$newUri = $entry->uri();
+		$newUri = ltrim($entry->uri(), '/');
 		$originalUri = str_replace($newSlug, $originalSlug, $newUri);
 
 		// When STATAMIC_REVISIONS_ENABLED is enabled will $entry->uri() return the old uri. To fix this, we do a string replacement.
