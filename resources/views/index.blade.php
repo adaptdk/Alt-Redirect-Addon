@@ -9,8 +9,6 @@
             :blueprint='@json($blueprint)'
             :meta='@json($meta)'
             :values='@json($values)'
-            :items="{{ json_encode($data) }}"
-            type="{{ $type }}"
         ></alt-redirect>
 
         <!--  -->

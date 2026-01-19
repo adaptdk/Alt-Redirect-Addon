@@ -2,226 +2,212 @@
 
 namespace AltDesign\AltRedirect\Http\Controllers;
 
-use AltDesign\AltRedirect\Helpers\Data;
+use AltDesign\AltRedirect\Models\Redirect;
 use Illuminate\Http\Request;
-use Statamic\Fields\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Statamic\Fields\BlueprintRepository;
-use Statamic\Filesystem\Manager;
+use Statamic\Fields\Fields;
+use Throwable;
 
 class AltRedirectController
 {
-    private string $type = 'redirects';
-    private array $actions = [
-        'redirects' => 'alt-redirect.create',
-        'query-strings' => 'alt-redirect.query-strings.create'
-    ];
-    private array $titles = [
-        'redirects' => 'Alt Redirect',
-        'query-strings' => 'Alt Redirect - Query Strings'
-    ];
+	const BLUEPRINT = 'redirects';
 
-    private array $instructions = [
-        'redirects' => 'Manage your redirects here. For detailed instructions, please consult the Alt Redirect Readme',
-        'query-strings' => 'Alt Redirect can strip query strings from your URIs before they are processed. These are listed below, add the key for query strings you want strip',
-    ];
+	public function index()
+	{
+		// Get a blueprint.
+		$blueprint = with(new BlueprintRepository())->setDirectory(__DIR__ . '/../../../resources/blueprints')->find(self::BLUEPRINT);
+		// Get a Fields object
+		$fields = $blueprint->fields();
+		// Add empty values for initial load
+		$fields = $fields->addValues([]);
+		// Pre-process the values.
+		$fields = $fields->preProcess();
 
-    // Work out what page we're handling
-    public function __construct()
-    {
-        $path = request()->path();
-        if (str_contains($path, 'query-strings')) {
-            $this->type = 'query-strings';
-        }
-    }
+		return view('alt-redirect::index', [
+			'blueprint' => $blueprint->toPublishArray(),
+			'values' => $fields->values(),
+			'meta' => $fields->meta(),
+			'data' => [],
+			'action' => 'alt-redirect.create',
+			'title' => 'Redirect',
+			'instructions' => 'Manage your redirects here.',
+		]);
+	}
 
-    public function index()
-    {
-        // Grab the old directory just in case
-        $oldDirectory = Blueprint::directory();
+	public function paginated(Request $request)
+	{
+		$perPage = $request->get('per_page', 10);
+		$search = $request->get('search', '');
 
-        //Publish form
-        // Get an array of values
-        $data = new Data($this->type);
-        $values = $data->all();
+		$query = Redirect::query();
 
-        // Get a blueprint.So
-        $blueprint = with(new BlueprintRepository)->setDirectory(__DIR__.'/../../../resources/blueprints')->find($this->type);
-        // Get a Fields object
-        $fields = $blueprint->fields();
-        // Add the values to the object
-        $fields = $fields->addValues($values);
-        // Pre-process the values.
-        $fields = $fields->preProcess();
+		// Apply search filter if provided
+		if (!empty($search)) {
+			$query->where(function ($q) use ($search) {
+				$q->where('from', 'LIKE', "%{$search}%")
+				  ->orWhere('to', 'LIKE', "%{$search}%")
+				  ->orWhere('redirect_type', 'LIKE', "%{$search}%");
+			});
+		}
 
-        // Reset the directory to the old one
-        if ($oldDirectory) {
-            Blueprint::setDirectory($oldDirectory);
-        }
+		$redirects = $query->paginate($perPage);
 
-        return view('alt-redirect::index', [
-            'blueprint' => $blueprint->toPublishArray(),
-            'values' => $fields->values(),
-            'meta' => $fields->meta(),
-            'data' => $values,
-            'type' => $this->type,
-            'action' => $this->actions[$this->type],
-            'title' => $this->titles[$this->type],
-            'instructions' => $this->instructions[$this->type],
-        ]);
-    }
+		return response()->json([
+			'data' => $redirects->items(),
+			'current_page' => $redirects->currentPage(),
+			'last_page' => $redirects->lastPage(),
+			'per_page' => $redirects->perPage(),
+			'total' => $redirects->total(),
+			'from' => $redirects->firstItem(),
+			'to' => $redirects->lastItem(),
+		]);
+	}
 
-    public function create(Request $request)
-    {
-        $data = new Data($this->type);
+	public function create(Request $request)
+	{
+		// Get a blueprint.
+		$blueprint = with(new BlueprintRepository())->setDirectory(__DIR__ . '/../../../resources/blueprints')->find(self::BLUEPRINT);
 
-        // Get a blueprint.
-        $blueprint = with(new BlueprintRepository)->setDirectory(__DIR__.'/../../../resources/blueprints')->find($this->type);
+		// Get a Fields object
+		/** @var Fields $fields */
+		$fields = $blueprint->fields();
+		$values = $request->all();
 
-        // Get a Fields object
-        $fields = $blueprint->fields();
+		$fields = $fields->addValues($values);
+		$fields->validate();
 
-        // Add the values to the array
-        $arr = $request->all();
-        $arr['id'] = uniqid();
+		$fromMd5 = md5($request->get('from'));
+		$redirect = Redirect::make(
+			from: $request->get('from'),
+			to: $request->get('to'),
+			redirectType: $request->get('redirect_type'),
+			sites: $request->get('sites'),
+			isRegex: $request->get('is_regex'),
+		);
 
-        // Avoid looping redirects (caught by validation, but give a more helpful error)
-        if (($this->type == 'redirects') && ($arr['to'] === $arr['from'])) {
-            $response = [
-                'message' => "'To' and 'From' addresses cannot be identical",
-                'errors' => [
-                    'from' => ['This field must be unique.'],
-                    'to' => ['This field must be unique.'],
-                ],
-            ];
+		if ($message = $redirect->validateRedirect()) {
+			return response()->json($message, 422);
+		}
 
-            return response()->json($response, 422);
-        }
+		Redirect::query()->updateOrCreate(['from_md5' => $fromMd5], $redirect->toArray());
 
-        $fields = $fields->addValues($arr);
-        $fields->validate();
+		$fields = $fields->addValues([]);
+		$fields = $fields->preProcess();
 
-        $data->setAll($fields->process()->values()->toArray());
+		return response()->json(['values' => $fields->values()]);
+	}
 
-        $data = new Data($this->type);
-        $values = $data->all();
+	/**
+	 * @throws Throwable
+	 */
+	public function delete(Request $request)
+	{
+		$id = $request->get('id');
+		Redirect::query()->find($id)?->delete();
 
-        return [
-            'data' => $values,
-        ];
-    }
+		return response(null, 204);
+	}
 
-    public function delete(Request $request)
-    {
-        $disk = (new Manager())->disk();
-        switch($this->type) {
-            case "redirects" :
-                $disk->delete('content/alt-redirect/' . hash('sha512', base64_encode($request->from)) . '.yaml');
-                $disk->delete('content/alt-redirect/' . base64_encode($request->from) . '.yaml');
-                $disk->delete('content/alt-redirect/alt-regex/' . hash('sha512', base64_encode($request->id)) . '.yaml');
-                $disk->delete('content/alt-redirect/alt-regex/'. base64_encode($request->id) . '.yaml');
-                break;
-            case 'query-strings':
-                $disk->delete('content/alt-redirect/query-strings/' . hash('sha512', base64_encode($request->query_string)) . '.yaml');
-                break;
-        }
+	// Import and Export can stay hardcoded to redirects since I/O for Query Strings aren't supported atm
+	public function export(Request $request)
+	{
+		$callback = function () {
+			$stream = fopen('php://output', 'w');
 
-        $data = new Data($this->type);
-        $values = $data->all();
+			fputcsv($stream, ['from', 'to', 'redirect_type', 'sites', 'is_regex']);
 
-        return [
-            'data' => $values,
-        ];
-    }
+			Redirect::query()->chunk(100, function ($redirects) use ($stream) {
+				foreach ($redirects as $redirect) {
+					fputcsv($stream, [
+						$redirect->from,
+						$redirect->to,
+						$redirect->redirect_type,
+						implode(',', $redirect->sites),
+						$redirect->is_regex ? 1 : 0,
+					]);
+				}
+			});
 
-    // Import and Export can stay hardcoded to redirects since I/O for Query Strings aren't supported atm
-    public function export(Request $request)
-    {
-        $data = new Data('redirects');
+			fclose($stream);
+		};
 
-        $callback = function () use ($data) {
-            $df = fopen('php://output', 'w');
+		return response()->stream($callback, 200, [
+			'Content-Type' => 'text/csv',
+			'Content-Disposition' => 'attachment; filename="redirects_' . date('Y-m-d\_H:i:s') . '.csv"',
+		]);
+	}
 
-            fputcsv($df, ['from', 'to', 'redirect_type', 'sites', 'id']);
+	/**
+	 * @throws ValidationException
+	 */
+	public function import(Request $request)
+	{
+		$file = $request->file('file');
+		$redirects = $this->redirectCsvToArray($file);
 
-            // Use the data from the request instead of fetching from the database
-            foreach ($data->data as $row) {
-                fputcsv($df, [$row['from'], $row['to'], $row['redirect_type'], is_array($row['sites']) ? implode(',', $row['sites']) : $row['sites'], $row['id']]); // Adjust as per your data structure
-            }
+		$redirects = Validator::make($redirects, [
+			'*.from' => ['required', 'string'],
+			'*.to' => ['required', 'string'],
+			'*.redirect_type' => ['required', 'string', Rule::in(['301', '302', '307', '308'])],
+			'*.sites' => ['required', 'array'],
+			'*.is_regex' => ['required', 'bool'],
+		])->validate();
 
-            fclose($df);
-        };
+		return DB::transaction(function () use ($redirects) {
+			foreach ($redirects as $key => $redirect) {
+				$fromMd5 = md5($redirect['from']);
+				$redirect = Redirect::make(
+					from: $redirect['from'],
+					to: $redirect['to'],
+					redirectType: $redirect['redirect_type'],
+					sites: $redirect['sites'],
+					isRegex: $redirect['is_regex'],
+				);
 
-        return response()->stream($callback, 200, [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="redirects_'.date('Y-m-d\_H:i:s').'.csv"',
-        ]);
-    }
+				if ($message = $redirect->validateRedirect()) {
+					DB::rollBack();
+					return response()->json([$key => $message], 422);
+				}
 
-    public function import(Request $request)
-    {
-        $currentData = json_decode($request->get('data'), true);
-        $file = $request->file('file');
-        $handle = fopen($file->path(), 'r');
-        if ($handle !== false) {
-            $headers = fgetcsv($handle);
-            while (($row = fgetcsv($handle)) !== false) {
-                $temp = [
-                    'from' => $row[0],
-                    'to' => $row[1],
-                    'redirect_type' => $row[2],
-                    'sites' => !empty($row[3] ?? false) ? explode(',', $row[3]) : ['default'],
-                    'id' => ! empty($row[4] ?? false) ? $row[4] : uniqid(),
-                ];
-                // Skip the redirect if it'll create an infinite loop (handles empty redirects too)
-                if ($temp['to'] === $temp['from']) {
-                    continue;
-                }
-                foreach ($currentData as $rdKey => $redirect) {
-                    if ($redirect['id'] === $temp['id'] || $redirect['from'] === $temp['from']) {
-                        $currentData[$rdKey] = $temp;
+				Redirect::query()->updateOrCreate(['from_md5' => $fromMd5], $redirect->toArray());
+			}
 
-                        continue 2;
-                    }
-                }
-                $currentData[] = $temp;
-            }
+			DB::commit();
+			return response(null, 204);
+		});
+	}
 
-            // Close the file handle
-            fclose($handle);
-        }
-        $data = new Data('redirects');
-        $data->saveAll($currentData);
+	private function redirectCsvToArray($file): array
+	{
+		$handle = fopen($file->path(), 'r');
+		$redirects = [];
 
-    }
+		if ($handle !== false) {
+			$headers = fgetcsv($handle);
+			while (($row = fgetcsv($handle)) !== false) {
+				$redirect = [
+					'from' => $row[0],
+					'to' => $row[1],
+					'redirect_type' => $row[2],
+					'sites' => !empty($row[3] ?? false) ? explode(',', $row[3]) : ['default'],
+					'is_regex' => $row[4],
+				];
+				// Skip the redirect if it'll create an infinite loop (handles empty redirects too)
+				if ($redirect['to'] === $redirect['from']) {
+					continue;
+				}
 
-    // Toggle a key in a certain item and return the data afterwards
-    public function toggle(Request $request)
-    {
-        $toggleKey =  $request->get('toggleKey');
-        $index =  $request->get('index');
-        $data = new Data($this->type);
+				$redirects[] = $redirect;
+			}
 
-        switch ($this->type) {
-            case 'query-strings':
-                $item = $data->getByKey('query_string', $index);
-                if ($item === null) {
-                    return response('Error finding item', 500);
-                }
+			// Close the file handle
+			fclose($handle);
+		}
 
-                if (!isset($item[$toggleKey])) {
-                    $item[$toggleKey] = false;
-                }
-                $item[$toggleKey] = !$item[$toggleKey];
-                $data->setAll($item);
-                break;
-            default:
-                return response('Method not implemented', 500);
-        }
-        $data = new Data($this->type);
-        $values = $data->all();
-
-        return [
-            'data' => $values,
-        ];
-    }
+		return $redirects;
+	}
 }
