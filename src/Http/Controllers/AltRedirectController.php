@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
 use Statamic\Fields\BlueprintRepository;
 use Statamic\Fields\Fields;
 use Throwable;
@@ -27,14 +28,12 @@ class AltRedirectController
 		// Pre-process the values.
 		$fields = $fields->preProcess();
 
-		return view('alt-redirect::index', [
+		return Inertia::render('alt-redirect::Index', [
 			'blueprint' => $blueprint->toPublishArray(),
-			'values' => $fields->values(),
-			'meta' => $fields->meta(),
-			'data' => [],
-			'action' => 'alt-redirect.create',
+			'initialValues' => $fields->values()->all(),
+			'initialMeta' => $fields->meta()->all(),
+			'action' => cp_route('alt-redirect.create'),
 			'title' => 'Redirect',
-			'instructions' => 'Manage your redirects here.',
 		]);
 	}
 
