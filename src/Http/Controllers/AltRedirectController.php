@@ -74,30 +74,27 @@ class AltRedirectController
 		// Get a Fields object
 		/** @var Fields $fields */
 		$fields = $blueprint->fields();
-		$values = $request->all();
 
-		$fields = $fields->addValues($values);
+		$fields = $fields->addValues($request->all());
 		$fields->validate();
 
-		$fromMd5 = md5($request->get('from'));
+		// Post-process values through fieldtypes for storage
+		$processedValues = $fields->process()->values()->all();
+
+		$fromMd5 = md5($processedValues['from']);
 		$redirect = Redirect::make(
-			from: $request->get('from'),
-			to: $request->get('to'),
-			redirectType: $request->get('redirect_type'),
-			sites: $request->get('sites'),
-			isRegex: $request->get('is_regex'),
+			from: $processedValues['from'],
+			to: $processedValues['to'],
+			redirectType: $processedValues['redirect_type'],
+			sites: $processedValues['sites'],
+			isRegex: $processedValues['is_regex'] ?? false,
 		);
 
 		if ($message = $redirect->validateRedirect()) {
-			return response()->json($message, 422);
+			throw ValidationException::withMessages($message['errors']);
 		}
 
 		Redirect::query()->updateOrCreate(['from_md5' => $fromMd5], $redirect->toArray());
-
-		$fields = $fields->addValues([]);
-		$fields = $fields->preProcess();
-
-		return response()->json(['values' => $fields->values()]);
 	}
 
 	/**
@@ -108,7 +105,7 @@ class AltRedirectController
 		$id = $request->get('id');
 		Redirect::query()->find($id)?->delete();
 
-		return response(null, 204);
+		return redirect()->back();
 	}
 
 	// Import and Export can stay hardcoded to redirects since I/O for Query Strings aren't supported atm
@@ -156,10 +153,10 @@ class AltRedirectController
 			'*.is_regex' => ['required', 'bool'],
 		])->validate();
 
-		return DB::transaction(function () use ($redirects) {
-			foreach ($redirects as $key => $redirect) {
+		DB::transaction(function () use ($redirects) {
+			foreach ($redirects as $redirect) {
 				$fromMd5 = md5($redirect['from']);
-				$redirect = Redirect::make(
+				$redirectModel = Redirect::make(
 					from: $redirect['from'],
 					to: $redirect['to'],
 					redirectType: $redirect['redirect_type'],
@@ -167,17 +164,15 @@ class AltRedirectController
 					isRegex: $redirect['is_regex'],
 				);
 
-				if ($message = $redirect->validateRedirect()) {
-					DB::rollBack();
-					return response()->json([$key => $message], 422);
+				if ($message = $redirectModel->validateRedirect()) {
+					throw ValidationException::withMessages($message['errors']);
 				}
 
-				Redirect::query()->updateOrCreate(['from_md5' => $fromMd5], $redirect->toArray());
+				Redirect::query()->updateOrCreate(['from_md5' => $fromMd5], $redirectModel->toArray());
 			}
-
-			DB::commit();
-			return response(null, 204);
 		});
+
+		return redirect()->back();
 	}
 
 	private function redirectCsvToArray($file): array
@@ -186,8 +181,8 @@ class AltRedirectController
 		$redirects = [];
 
 		if ($handle !== false) {
-			$headers = fgetcsv($handle);
-			while (($row = fgetcsv($handle)) !== false) {
+			$headers = fgetcsv($handle, escape: "");
+			while (($row = fgetcsv($handle, escape: "")) !== false) {
 				$redirect = [
 					'from' => $row[0],
 					'to' => $row[1],

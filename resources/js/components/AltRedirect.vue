@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, useTemplateRef } from 'vue';
 import {
     Header, Heading, Subheading,
     PublishContainer, Card, Button, Badge, Icon,
@@ -8,6 +8,7 @@ import {
     Modal,
 } from '@statamic/cms/ui';
 import { Pipeline, BeforeSaveHooks, Request, AfterSaveHooks } from '@statamic/cms/save-pipeline';
+import { router } from '@statamic/cms/inertia';
 
 // Expose Statamic's global cp_url helper to the template scope
 const cp_url = window.cp_url;
@@ -22,7 +23,7 @@ const props = defineProps({
 
 const values = ref({ ...props.initialValues });
 const meta = ref({ ...props.initialMeta });
-const container = ref(null);
+const container = useTemplateRef('container');
 const errors = ref({});
 const saving = ref(false);
 
@@ -42,6 +43,7 @@ const paginationData = ref({
     to: 0,
 });
 const loading = ref(false);
+const fileInputKey = ref(0);
 const deleteModalOpen = ref(false);
 const deleteTargetId = ref(null);
 const importModalOpen = ref(false);
@@ -71,11 +73,6 @@ watch(perPage, () => {
 onMounted(() => {
     fetchPaginatedData();
 });
-
-function getCsrfToken() {
-    const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
-    return match ? decodeURIComponent(match[1]) : '';
-}
 
 async function fetchPaginatedData() {
     loading.value = true;
@@ -113,29 +110,19 @@ async function fetchPaginatedData() {
 }
 
 function save() {
-    saving.value = true;
-    errors.value = {};
-
     new Pipeline()
-        .provide({ container: container.value, errors, saving })
+        .provide({ container, errors, saving })
         .through([
             new BeforeSaveHooks(),
             new Request(props.action, 'POST'),
             new AfterSaveHooks(),
         ])
-        .then((response) => {
-            saving.value = false;
-            if (response?.data?.values) {
-                values.value = { ...response.data.values };
-            } else {
-                values.value = { ...props.initialValues };
-            }
+        .then(() => {
+            values.value = { ...props.initialValues };
             Statamic.$toast.success('Redirect saved successfully');
             fetchPaginatedData();
         })
-        .catch((e) => {
-            saving.value = false;
-        });
+        .catch(() => {});
 }
 
 function onPageSelected(page) {
@@ -152,29 +139,22 @@ function confirmDelete(id) {
     deleteModalOpen.value = true;
 }
 
-async function executeDelete() {
+function executeDelete() {
     const id = deleteTargetId.value;
     deleteModalOpen.value = false;
     deleteTargetId.value = null;
 
-    try {
-        await fetch(cp_url('alt-design/alt-redirect/delete'), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-XSRF-TOKEN': getCsrfToken(),
-            },
-            credentials: 'same-origin',
-            body: JSON.stringify({ id }),
-        });
-        Statamic.$toast.success('Redirect deleted successfully');
-        fetchPaginatedData();
-    } catch (err) {
-        console.error(err);
-        Statamic.$toast.error('Error deleting redirect');
-    }
+    router.post(cp_url('alt-design/alt-redirect/delete'), { id }, {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => {
+            Statamic.$toast.success('Redirect deleted successfully');
+            fetchPaginatedData();
+        },
+        onError: () => {
+            Statamic.$toast.error('Error deleting redirect');
+        },
+    });
 }
 
 function confirmImport() {
@@ -185,33 +165,24 @@ function confirmImport() {
     importModalOpen.value = true;
 }
 
-async function executeImport() {
+function executeImport() {
     importModalOpen.value = false;
 
     const formData = new FormData();
     formData.append('file', selectedFile.value);
 
-    try {
-        const response = await fetch(cp_url('alt-design/alt-redirect/import'), {
-            method: 'POST',
-            headers: {
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-XSRF-TOKEN': getCsrfToken(),
-            },
-            credentials: 'same-origin',
-            body: formData,
-        });
-        if (!response.ok) {
-            throw new Error('Import failed');
-        }
-        Statamic.$toast.success('Redirects imported successfully');
-        fetchPaginatedData();
-        clearFile();
-    } catch (err) {
-        console.error(err);
-        Statamic.$toast.error('Invalid CSV file format. Check console for details.');
-    }
+    router.post(cp_url('alt-design/alt-redirect/import'), formData, {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => {
+            Statamic.$toast.success('Redirects imported successfully');
+            fetchPaginatedData();
+            clearFile();
+        },
+        onError: () => {
+            Statamic.$toast.error('Invalid CSV file format. Check console for details.');
+        },
+    });
 }
 
 function handleFileUpload(event) {
@@ -230,6 +201,7 @@ function handleDrop(event) {
 function clearFile() {
     selectedFile.value = null;
     fileName.value = 'Choose a file...';
+    fileInputKey.value++;
 }
 </script>
 
@@ -325,9 +297,9 @@ function clearFile() {
             <Card class="w-full xl:w-1/2 p-4">
                 <Heading class="mb-1">CSV Export</Heading>
                 <Subheading class="mb-4">Exports CSV of all redirects, use this format on import.</Subheading>
-                <Button variant="primary" icon="download" :href="cp_url('/alt-design/alt-redirect/export')" download>
-                    Export CSV
-                </Button>
+                <a :href="cp_url('/alt-design/alt-redirect/export')" download data-inertia="false">
+                    <Button variant="primary" icon="download" as="span">Export CSV</Button>
+                </a>
             </Card>
             <Card class="w-full xl:w-1/2 p-4">
                 <Heading class="mb-1">CSV Import</Heading>
@@ -341,9 +313,9 @@ function clearFile() {
                     >
                         <Icon name="upload" class="w-4 h-4" />
                         <span>{{ selectedFile ? fileName : 'Choose CSV file...' }}</span>
-                        <input type="file" accept=".csv" @change="handleFileUpload" class="sr-only">
+                        <input :key="fileInputKey" type="file" accept=".csv" @change="handleFileUpload" class="sr-only">
                     </label>
-                    <Button v-if="selectedFile" @click="clearFile" icon="close" variant="danger" size="sm" icon-only />
+                    <Button v-if="selectedFile" @click="clearFile" icon="trash" variant="danger" size="sm" icon-only />
                     <Button @click="confirmImport()" :disabled="!selectedFile" icon="upload">Import</Button>
                 </div>
             </Card>
